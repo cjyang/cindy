@@ -452,6 +452,9 @@ function translateInput(input: ResponsesRequest['input'], opts: TranslateInputOp
   for (let index = input.length - 1; index >= 0; index -= 1) {
     const item = input[index];
     if (!isPlainObject(item)) continue;
+    // Tool-only wrappers carry a role but are not messages; they must not move the
+    // newest-user boundary (which decides which images are still current-turn).
+    if ((item as Record<string, unknown>).type === 'additional_tools') continue;
     const role = (item as Record<string, unknown>).role;
     if (typeof role !== 'string') continue;
     if (role === 'user') {
@@ -618,6 +621,12 @@ function translateInput(input: ResponsesRequest['input'], opts: TranslateInputOp
     if (!isPlainObject(item)) throw new UnsupportedResponsesFeatureError(`input[${index}]`);
     const record = item as Record<string, unknown>;
 
+    // Responses Lite / v2 inlines extra top-level tool groups as input items. They carry a
+    // role but no content: the declarations are already catalogued by
+    // ChatBridgeToolContext.collectHistoryTools, and the wrapper is not conversation, so it
+    // must be dropped before the role branch treats it as a message.
+    if (item.type === 'additional_tools') continue;
+
     if ('role' in item && typeof item.role === 'string') {
       // 只有工具调用、没有正文的 assistant 历史项整条跳过(#9344,与 Anthropic 桥接 #6676 对齐)。
       if (isEmptyAssistantMessageWithSupportedMetadata(record)) continue;
@@ -676,6 +685,7 @@ function translateInput(input: ResponsesRequest['input'], opts: TranslateInputOp
       }
       continue;
     }
+
 
     if (item.type === 'reasoning') {
       if (opts.reasoningHistoryField === 'reasoning_content') {
@@ -1034,3 +1044,4 @@ export function translateResponsesRequest(
 ): ChatCompletionsRequest {
   return translateResponsesRequestWithContext(input, opts).request;
 }
+

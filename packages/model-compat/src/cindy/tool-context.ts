@@ -269,6 +269,13 @@ export class ChatBridgeToolContext {
           typeof item.namespace === 'string' ? item.namespace : undefined,
         );
       }
+      // Responses Lite / v2 inline top-level tool groups as input items. They declare
+      // tools, not conversation, so catalogue them like any other historical group.
+      if (item.type === 'additional_tools' && Array.isArray(item.tools)) {
+        for (const tool of item.tools) {
+          this.addResponseTool(tool as ResponseTool);
+        }
+      }
       if (
         (item.type === 'tool_search_output' || item.type === 'tool_search_call_output')
         && Array.isArray(item.tools)
@@ -280,3 +287,4 @@ export class ChatBridgeToolContext {
     }
   }
 }
+

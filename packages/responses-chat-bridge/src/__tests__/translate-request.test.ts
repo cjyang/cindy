@@ -635,6 +635,43 @@ describe('translateResponsesRequest', () => {
     ]);
   });
 
+  it('promotes an additional_tools input item into the catalog instead of failing (#9715)', () => {
+    const out = translateResponsesRequest(base({
+      input: [
+        {
+          type: 'additional_tools',
+          role: 'developer',
+          tools: [
+            {
+              type: 'namespace',
+              name: 'clock',
+              tools: [{ type: 'function', name: 'now', parameters: { type: 'object', properties: {} } }],
+            },
+          ],
+        },
+        { type: 'message', role: 'user', content: 'hello' },
+      ],
+    }));
+
+    expect(out.messages).toEqual([{ role: 'user', content: 'hello' }]);
+    expect(out.tools?.map(tool => (tool as { function: { name: string } }).function.name)).toEqual(['clock__now']);
+  });
+
+  it('ignores an additional_tools item in the middle of replayed history (#9715)', () => {
+    const out = translateResponsesRequest(base({
+      input: [
+        { type: 'message', role: 'user', content: 'start' },
+        { type: 'additional_tools', role: 'developer', tools: [] },
+        { type: 'message', role: 'user', content: 'again' },
+      ],
+    }));
+
+    expect(out.messages).toEqual([
+      { role: 'user', content: 'start' },
+      { role: 'user', content: 'again' },
+    ]);
+  });
+
   it('keeps agent messages after the preceding tool result', () => {
     const out = translateResponsesRequest(base({
       input: [
@@ -1583,3 +1620,4 @@ describe('translateResponsesRequest', () => {
     });
   });
 });
+
